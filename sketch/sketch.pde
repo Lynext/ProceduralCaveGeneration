@@ -1,28 +1,31 @@
-boolean[][] currentMap;
-boolean[][] nextMap;
-float chanceToStartAlive = 0.45f;
-int numberOfSteps = 6;
+int[][] currentMap;
+int[][] nextMap;
+boolean transformActive = false;
+int numberOfSteps = 0;
 int birthLimit = 4;
 int deathLimit = 3;
-int rectWidth = 10, rectHeight = 10;
+int cellWidth = 10, cellHeight = 10;
 int transformationStep = 0;
+int gen = 0;
+float startUp = 0;
 
-public boolean[][] initialiseMap(boolean[][] map)
+float chanceToStartAlive = 0.45f;
+public int[][] initialiseMap(int[][] map)
 {
-    for(int x = 0; x < width / rectWidth; x++)
+    for(int x = 0; x < width / cellWidth; x++)
     {
-        for(int y = 0; y < height / rectHeight; y++)
+        for(int y = 0; y < height / cellHeight; y++)
         {
             if(random(1.0) < chanceToStartAlive)
             {
-                map[x][y] = true;
+                map[x][y] = 1;
             }
         }
     }
     return map;
 }
 
-public int countAliveNeighbours(boolean[][] map, int x, int y){
+public int countAliveNeighbours(int[][] map, int x, int y){
     int count = 0;
     for(int i = -1; i < 2; i++)
     {
@@ -41,7 +44,7 @@ public int countAliveNeighbours(boolean[][] map, int x, int y){
                 count = count + 1;
             }
             
-            else if(map[nx][ny])
+            else if(map[nx][ny] >= 1)
             {
                 count = count + 1;
             }
@@ -52,7 +55,7 @@ public int countAliveNeighbours(boolean[][] map, int x, int y){
 
 
 
-public boolean[][] generateMap(boolean[][] map)
+public int[][] generateMap(int[][] map)
 {
     map = initialiseMap(map);
     for(int i = 1; i <= numberOfSteps; i++)
@@ -62,35 +65,50 @@ public boolean[][] generateMap(boolean[][] map)
     return map;
 }
 
-
-public boolean[][] doSimulationStep(boolean[][] oldMap){
-    boolean[][] newMap = new boolean[width / rectWidth][height / rectHeight];
-
-    for(int x = 0; x < width / rectWidth; x++)
+public void setMap (int[][] toSet, int[][] oldMap)
+{
+  for(int x = 0; x < width / cellWidth; x++)
     {
-        for(int y = 0; y < height / rectHeight; y++)
+        for(int y = 0; y < height / cellHeight; y++)
         {
-            int nbs = countAliveNeighbours(oldMap, x, y);
-            if(oldMap[x][y])
+           if (oldMap[x][y] >= 1)
+             toSet[x][y] = 1;
+           else
+             toSet[x][y] = 0;
+        }
+    }
+}
+
+
+public int[][] doSimulationStep(int[][] oldMap)
+{
+    int[][] newMap = new int[width / cellWidth][height / cellHeight];
+
+    for(int x = 0; x < width / cellWidth; x++)
+    {
+        for(int y = 0; y < height / cellHeight; y++)
+        {
+            int anc = countAliveNeighbours(oldMap, x, y);
+            if(oldMap[x][y] >= 1)
             {
-                if(nbs < deathLimit)
+                if(anc < deathLimit)
                 {
-                    newMap[x][y] = false;
+                    newMap[x][y] = -2;
                 }
                 else
                 {
-                    newMap[x][y] = true;
+                    newMap[x][y] = 1;
                 }
             }
             else
             {
-                if(nbs > birthLimit)
+                if(anc > birthLimit)
                 {
-                    newMap[x][y] = true;
+                    newMap[x][y] = 2;
                 }
                 else
                 {
-                    newMap[x][y] = false;
+                    newMap[x][y] = 0;
                 }
             }
         }
@@ -103,51 +121,72 @@ public void setup()
 {
   size(1280, 720, P2D);
   noStroke();
-  frameRate(240);
-  currentMap = generateMap(new boolean[width / rectWidth][height / rectHeight]);
-  nextMap = generateMap(new boolean[width / rectWidth][height / rectHeight]);
+  frameRate(60);
+  currentMap = generateMap(new int[width / cellWidth][height / cellHeight]);
+  nextMap = doSimulationStep(currentMap);
 }
 
 public void transformMap (int i)
 {
-  int x = i / (height / rectWidth);
-  int y = i % (height / rectWidth);
+  int x = i / (height / cellWidth);
+  int y = i % (height / cellWidth);
   currentMap[x][y] = nextMap[x][y];
 }
   
 public void draw() 
 {
+    startUp += 1f / frameRate;
+    if (startUp >= 3)
+      transformActive = true;
+  
     background(51,85,120);
 
-    fill(68,51,51);
-    for (int x = 0; x < width / rectWidth; x++)
+    for (int x = 0; x < width / cellWidth; x++)
     {
-      for (int y = 0; y < height / rectHeight; y++)
+      for (int y = 0; y < height / cellHeight; y++)
       {
-        if (currentMap[x][y] == true)
+        if (currentMap[x][y] == 1)
         {
-          rect(x * rectWidth,y * rectHeight,rectWidth,rectHeight);
+          fill(68,51,51);
+          stroke(68,51,51);
+          rect(x * cellWidth,y * cellHeight,cellWidth,cellHeight);
+        }
+        else if (currentMap[x][y] == 2)
+        {
+          fill(68 + 100,51 + 100,51 + 100);
+          stroke(68 + 100,51 + 100,51 + 100);
+          rect(x * cellWidth,y * cellHeight,cellWidth,cellHeight);
+        }
+        else if (currentMap[x][y] == -2)
+        {
+          //fill(51 - 30,85 - 30,120 - 30);
+          //stroke(51 - 30,85 - 30,120 - 30);
+          fill(50,0,0);
+          stroke(50,0,0);
+          rect(x * cellWidth,y * cellHeight,cellWidth,cellHeight);
         }
       }
     }
-    if (transformationStep < (width / rectWidth) * (height / rectWidth))
+    if (transformActive)
     {
-      for (int i = 1; i <= 20; i++)
+      for (int i = 1; i <= 32; i++)
       {
-        if (transformationStep >= (width / rectWidth) * (height / rectWidth))
+        if (transformationStep < (width / cellWidth) * (height / cellHeight))
         {
-          break; 
+          transformMap(transformationStep);
+          transformationStep++;
         }
-        transformMap(transformationStep);
-        transformationStep++;
-      }  
-    }
-    else
-    {
-      nextMap = generateMap(new boolean[width / rectWidth][height / rectHeight]);
-      transformationStep = 0;
-    }
+        else
+        {
+         gen++;
+         setMap(currentMap,nextMap);
+         transformationStep = 0;
+         nextMap = doSimulationStep(currentMap);
+        }
+      }
+  }
     fill(255);
     textSize(16);
     text("FPS : " + frameRate,24,36);
+    text("Gen : " + gen,24,72);
 }
